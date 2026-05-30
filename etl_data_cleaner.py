@@ -36,28 +36,36 @@ class CorporateDataCleaner:
         return True
 
     def transform_and_scrub(self):
-        """
-        TRANSFORM: Implements strict data scrubbing routines to sanitize the messy dataset.
-        """
-        print("[+] Initiating data transformation and scrubbing routines...")
+        """Executes advanced data normalization, string trimming, and forced numeric parsing."""
+        if self.combined_dataframe is None:
+            print("[-] No data available to transform.")
+            return False
         
-        # 1. Deduplication (Removing exact clone rows that ruin data integrity)
-        initial_count = len(self.combined_dataframe)
-        self.combined_dataframe.drop_duplicates(inplace=True)
-        print(f"    -> Removed {initial_count - len(self.combined_dataframe)} duplicate rows.")
-
-        # 2. Schema Standardization (Trimming hidden spaces in column titles)
+        print("[+] Initiating advanced data transformation and scrubbing routines...")
+        
+        # 1. Clean the Column Headers (Strip hidden trailing spaces)
         self.combined_dataframe.columns = self.combined_dataframe.columns.str.strip()
+        
+        # 2. Fix the Whitespace Bug (Absolute, Sweeping Cell Clean)
+        # This scans every single cell. If it's text, it strips it. If not, it leaves it alone.
+        self.combined_dataframe = self.combined_dataframe.map(
+            lambda x: x.strip() if isinstance(x, str) else x
+        )
 
-        # 3. Imputation (Handling missing/empty fields so the system doesn't crash)
-        # We fill empty text fields with "Unknown" and empty numeric fields with 0
-        text_columns = self.combined_dataframe.select_dtypes(include=['object']).columns
-        self.combined_dataframe[text_columns] = self.combined_dataframe[text_columns].fillna("Unknown")
-        
-        numeric_columns = self.combined_dataframe.select_dtypes(include=['number']).columns
-        self.combined_dataframe[numeric_columns] = self.combined_dataframe[numeric_columns].fillna(0)
-        
-        print("[+] Data normalization and scrubbing complete.")
+        # 3. Handle Numerical Chaos ('five', 'UNKNOWN', 'ERROR_VAL' -> converted safely to numbers)
+        # pd.to_numeric with errors='coerce' turns text words into blank NaN fields, which we then fill with 0
+        if 'Quantity Ordered' in self.combined_dataframe.columns:
+            self.combined_dataframe['Quantity Ordered'] = pd.to_numeric(
+                self.combined_dataframe['Quantity Ordered'], errors='coerce'
+            ).fillna(0).astype(int)
+
+        if 'Unit Price' in self.combined_dataframe.columns:
+            self.combined_dataframe['Unit Price'] = pd.to_numeric(
+                self.combined_dataframe['Unit Price'], errors='coerce'
+            ).fillna(0).astype(float)
+
+        print("[+] Data normalization, string stripping, and numeric coercion complete.")
+        return True
 
     def load_clean_dataset(self):
         """
